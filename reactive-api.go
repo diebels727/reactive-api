@@ -4,12 +4,14 @@ import (
   "net/http"
   "github.com/gorilla/mux"
   "fmt"
-  "time"
-  "strconv"
-  "encoding/json"
+  // "time"
+  // "strconv"
+  "strings"
+  // "encoding/json"
   "flag"
   "gopkg.in/mgo.v2"
-  // "gopkg.in/mgo.v2/bson"
+  "gopkg.in/mgo.v2/bson"
+  "github.com/diebels727/spyglass"
 )
 
 var port string
@@ -17,14 +19,6 @@ var mongo string
 func init() {
   flag.StringVar(&port,"port","8080","HTTP Server port")
   flag.StringVar(&mongo,"mongo","localhost","Mongo address")
-}
-
-type Event struct {
-  Timestamp int64
-  Message string
-  Bot string
-  Source string
-  Command string
 }
 
 type Datastore struct {
@@ -37,24 +31,28 @@ func slug(str string) string {
   return strings.Replace(str,".","-",-1)
 }
 
-func NewDatastore(host string,server string,session *mgo.Session) (*Datastore) {
+func NewDatastore(server string,session *mgo.Session) (*Datastore) {
   local := session.Copy()
   collection := local.DB(slug(server)).C("events")
   datastore := Datastore{local,collection}
   return &datastore
 }
 
-func (d *Datastore) Events() {
-
+func (d *Datastore) Events() (m []spyglass.Event){
+  m = make([]spyglass.Event,0)
+  err := d.Collection.Find(bson.M{}).All(&m)
+  if err != nil {
+    panic(err)
+  }
+  return
 }
 
-func ServerHandler(response http.ResponseWriter,request *http.Request) {
+func Handler(response http.ResponseWriter,request *http.Request) {
   response.Header().Set("Content-Type", "application/json")
   params := mux.Vars(request)
-
-
-
-  // fmt.Fprint(response,events)
+  datastore := NewDatastore(params["server"],session)
+  events := datastore.Events()
+  fmt.Fprint(response,events)
 }
 
 var session *mgo.Session
@@ -67,9 +65,9 @@ func main() {
   defer session.Close()
 
   router := mux.NewRouter()
-  router.HandleFunc("/{server}",ServerHandler)
-  router.HandleFunc("/{server}/minutes/{minutes}",ServerHandler)
+  router.HandleFunc("/{server}",Handler)
+  router.HandleFunc("/{server}/minutes/{minutes}",Handler)
   http.Handle("/",router)
-  http.ListenAndServe(port,nil)
+  http.ListenAndServe(":"+port,nil)
   fmt.Println("done!")
 }
