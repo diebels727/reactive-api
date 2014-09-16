@@ -70,7 +70,6 @@ func initSession(mongo string) (*mgo.Session){
 func main() {
   s := initSession(mongo)
   defer s.Close()
-
   router := mux.NewRouter()
   router.HandleFunc("/{server}",Handler)
   router.HandleFunc("/{server}/minutes/{minutes}",Handler)
