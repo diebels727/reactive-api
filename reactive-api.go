@@ -4,10 +4,7 @@ import (
   "net/http"
   "github.com/gorilla/mux"
   "fmt"
-  // "time"
-  // "strconv"
   "strings"
-  // "encoding/json"
   "flag"
   "gopkg.in/mgo.v2"
   "gopkg.in/mgo.v2/bson"
@@ -22,7 +19,6 @@ func init() {
 }
 
 type Datastore struct {
-  Session *mgo.Session
   Collection *mgo.Collection
 }
 
@@ -31,10 +27,10 @@ func slug(str string) string {
   return strings.Replace(str,".","-",-1)
 }
 
-func NewDatastore(server string,session *mgo.Session) (*Datastore) {
-  local := session.Copy()
+func NewDatastore(server string) (*Datastore) {
+  local := copySession()
   collection := local.DB(slug(server)).C("events")
-  datastore := Datastore{local,collection}
+  datastore := Datastore{collection}
   return &datastore
 }
 
@@ -50,19 +46,30 @@ func (d *Datastore) Events() (m []spyglass.Event){
 func Handler(response http.ResponseWriter,request *http.Request) {
   response.Header().Set("Content-Type", "application/json")
   params := mux.Vars(request)
-  datastore := NewDatastore(params["server"],session)
+  datastore := NewDatastore(params["server"])
   events := datastore.Events()
   fmt.Fprint(response,events)
 }
 
 var session *mgo.Session
 
-func main() {
-  session,err := mgo.Dial(mongo)
+func copySession() (*mgo.Session) {
+  return session.Copy()
+}
+
+func initSession(mongo string) (*mgo.Session){
+  var err error
+  session,err = mgo.Dial(mongo)
   if err != nil {
     panic(err)
   }
-  defer session.Close()
+  return session
+}
+
+
+func main() {
+  s := initSession(mongo)
+  defer s.Close()
 
   router := mux.NewRouter()
   router.HandleFunc("/{server}",Handler)
