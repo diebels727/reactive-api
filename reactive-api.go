@@ -11,6 +11,7 @@ import (
   "github.com/diebels727/spyglass"
   "time"
   "strconv"
+  "encoding/json"
 )
 
 var port string
@@ -66,10 +67,20 @@ func Handler(response http.ResponseWriter,request *http.Request) {
   }
 
   if err != nil {
-    http.Error(response,http.StatusText(500),500) //probably should not be a 500 -- this is a client error
+    http.Error(response,http.StatusText(500),500) //probably should not be a 500 -- this *shoulb* be a client error
   }
 
-  fmt.Fprint(response,events)
+  bytes,err := json.Marshal(events)
+  if err != nil {
+    fmt.Println("Error marshalling events, aborting...")
+    return
+  }
+  jsonEvents := string(bytes)
+
+  fmt.Fprint(response,"{\"events\": "+jsonEvents+"}")
+
+
+  // fmt.Fprint(response,events)
 }
 
 var session *mgo.Session
