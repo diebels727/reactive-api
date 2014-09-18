@@ -9,6 +9,8 @@ import (
   "gopkg.in/mgo.v2"
   "gopkg.in/mgo.v2/bson"
   "github.com/diebels727/spyglass"
+  "time"
+  "strconv"
 )
 
 var port string
@@ -34,12 +36,23 @@ func NewDatastore(server string) (*Datastore) {
   return &datastore
 }
 
-func (d *Datastore) Events() (m []spyglass.Event){
+func (d *Datastore) Events() (m []spyglass.Event,err error){
   m = make([]spyglass.Event,0)
-  err := d.Collection.Find(bson.M{}).All(&m)
-  if err != nil {
-    panic(err)
-  }
+  err = d.Collection.Find(bson.M{}).All(&m)
+  return
+}
+
+func (d *Datastore) EventsWithMinutes(minutes string) (m []spyglass.Event,err error){
+  m = make([]spyglass.Event,0)
+  current_time := time.Now().Unix()
+  minutes_int,err := strconv.Atoi(minutes)
+  seconds := minutes_int * 60
+  start := current_time - int64(seconds)
+
+  fmt.Println(start)
+
+
+  err = d.Collection.Find(bson.M{"timestamp":bson.M{"$gte": start}}).All(&m)
   return
 }
 
@@ -47,7 +60,18 @@ func Handler(response http.ResponseWriter,request *http.Request) {
   response.Header().Set("Content-Type", "application/json")
   params := mux.Vars(request)
   datastore := NewDatastore(params["server"])
-  events := datastore.Events()
+  var events []spyglass.Event
+  var err error
+  if len(params["minutes"]) > 0 {
+    events,err = datastore.EventsWithMinutes(params["minutes"])
+  } else {
+    events,err = datastore.Events()
+  }
+
+  if err != nil {
+    http.Error(response,http.StatusText(500),500) //probably should not be a 500 -- this is a client error
+  }
+
   fmt.Fprint(response,events)
 }
 
@@ -74,6 +98,7 @@ func main() {
   router.HandleFunc("/{server}",Handler)
   router.HandleFunc("/{server}/minutes/{minutes}",Handler)
   http.Handle("/",router)
+  fmt.Printf("Listening on :%s\n",port)
   http.ListenAndServe(":"+port,nil)
   fmt.Println("done!")
 }
