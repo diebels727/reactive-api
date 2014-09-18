@@ -47,12 +47,9 @@ func (d *Datastore) EventsWithMinutes(minutes string) (m []spyglass.Event,err er
   current_time := time.Now().Unix()
   minutes_int,err := strconv.Atoi(minutes)
   seconds := minutes_int * 60
-  start := current_time - int64(seconds)
+  since := current_time - int64(seconds)
 
-  fmt.Println(start)
-
-
-  err = d.Collection.Find(bson.M{"timestamp":bson.M{"$gte": start}}).All(&m)
+  err = d.Collection.Find(bson.M{"timestamp": bson.M{"$gte": since}}).All(&m)
   return
 }
 
