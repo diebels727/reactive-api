@@ -16,6 +16,7 @@ import (
 
 var port string
 var mongo string
+
 func init() {
   flag.StringVar(&port,"port","8080","HTTP Server port")
   flag.StringVar(&mongo,"mongo","localhost","Mongo address")
@@ -32,6 +33,7 @@ func slug(str string) string {
 
 func NewDatastore(server string) (*Datastore) {
   local := copySession()
+  defer local.Close()
   collection := local.DB(slug(server)).C("events")
   datastore := Datastore{collection}
   return &datastore
@@ -100,13 +102,15 @@ func initSession(mongo string) (*mgo.Session){
 
 
 func main() {
+  flag.Parse()
+  fmt.Printf("Connecting to mongo://%s\n",mongo)
   s := initSession(mongo)
   defer s.Close()
   router := mux.NewRouter()
   router.HandleFunc("/{server}",Handler)
   router.HandleFunc("/{server}/minutes/{minutes}",Handler)
   http.Handle("/",router)
-  fmt.Printf("Listening on :%s\n",port)
+  fmt.Printf("Listening on 0.0.0.0:%s\n",port)
   http.ListenAndServe(":"+port,nil)
   fmt.Println("done!")
 }
